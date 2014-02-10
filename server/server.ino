@@ -14,16 +14,13 @@
 #define NUM_DRINKS buffer[1]
 #define POUR_TIME buffer[2]
 
-
-
-
 //Ethernet globals
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress ip(10, 0, 0, 20); // IP address, may need to change depending on network
 EthernetServer server(80);  // create a server at port 80
 
 //typedef's
-typedef struct Drink{
+typedef struct Drink{//12*2+4=28 bytes
   short volumes[NUMBER_PUMPS];
   Drink *next;
 };
