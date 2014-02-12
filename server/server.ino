@@ -14,8 +14,26 @@
 #define NUM_DRINKS buffer[1]
 #define POUR_TIME buffer[2]
 
+
+//Pin defines
+#define PIN_FLOW_METER 21
+#define PIN_PUMP_1  22
+#define PIN_PUMP_2  23
+#define PIN_PUMP_3  24
+#define PIN_PUMP_4  25
+#define PIN_PUMP_5  26
+#define PIN_PUMP_6  27
+#define PIN_PUMP_7  28
+#define PIN_PUMP_8  29
+#define PIN_PUMP_9  30
+#define PIN_PUMP_10 31
+#define PIN_PUMP_11 32
+#define PIN_PUMP_12 33
+
+
 //Ethernet globals
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte mac[] = { 
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress ip(10, 0, 0, 20); // IP address, may need to change depending on network
 EthernetServer server(80);  // create a server at port 80
 
@@ -30,36 +48,56 @@ Drink *drinkList;
 //assored bytes used as a compact buffer for counters etc.  
 //Do not use any index in multiple interupts/main loop, see defines on top for more info
 byte buffer[4];
+int flowMeterCount;
+unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
+
+
+//interupt for the flow meter
+void flowInterupt(){
+  flowMeterCount++;
+  lastFlowMeterTime=millis();
+}
 
 void setup(){
+  //Pin setups:
+  pinMode(PIN_FLOW_METER, INPUT);
+  pinMode(PIN_PUMP_1 , OUTPUT);
+  pinMode(PIN_PUMP_2 , OUTPUT);
+  pinMode(PIN_PUMP_3 , OUTPUT);
+  pinMode(PIN_PUMP_4 , OUTPUT);
+  pinMode(PIN_PUMP_5 , OUTPUT);
+  pinMode(PIN_PUMP_6 , OUTPUT);
+  pinMode(PIN_PUMP_7 , OUTPUT);
+  pinMode(PIN_PUMP_8 , OUTPUT);
+  pinMode(PIN_PUMP_9 , OUTPUT);
+  pinMode(PIN_PUMP_10, OUTPUT);
+  pinMode(PIN_PUMP_11, OUTPUT);
+  pinMode(PIN_PUMP_12, OUTPUT);
+  
+  Serial.begin(9600);
+  attachInterrupt(0, flowInterupt, RISING);
   buffer[0]=0;
   //Setup timmer interupt
   cli();//stop interrupts
-  //desired inturupt frequency in Hz
   long desiredFrequency=1000;
-  //calcualte the clock cycles between interupts
   int cycles=(CLOCK_SPEED/desiredFrequency)/64;
-  //set timer1 interrupt at 1Hz
   TCCR1A = 0;// set entire TCCR1A register to 0
-  TCCR1B = 0;// same for TCCR1B
-  TCNT1  = 0;//initialize counter value to 0
-  // set compare match register for 1hz increments
-  
-  OCR1A = cycles;// = (16*10^6) / (1*265) - 1 (must be <65536)
-  // turn on CTC mode
+  TCCR1B = 0;
+  TCNT1  = 0;
+  OCR1A = cycles;
   TCCR1B |= (1 << WGM12);
   // Set CS10 bit for 64 prescaler
   TCCR1B |= (1 << CS11)|(1 << CS10) ;  
-  // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
   sei();//allow interrupts
   //End timmed interupt setup
-  
+
   //Setup for Ethernet Card
   Ethernet.begin(mac, ip);  // initialize Ethernet device
   server.begin();           // start to listen for clients
   //End Ethernet Setup
   
+  //Data setup
   drinkList=0;
 }
 
@@ -72,7 +110,7 @@ void loop(){
 
 //logic to activate a pump
 void activatePump(int pumpID){
-  
+
 }
 
 
@@ -82,16 +120,21 @@ ISR(TIMER1_COMPA_vect){
     //set buffer 0 to be the frist non-zero volume in the drink.
     for(;VOL_INDEX<=NUMBER_PUMPS && (*drinkList).volumes[VOL_INDEX]==0; 
           VOL_INDEX++,POUR_TIME=0);
-    if(buffer[VOL_INDEX]==NUMBER_PUMPS){//This drink is done.  Clean up!
+      if(buffer[VOL_INDEX]==NUMBER_PUMPS){//This drink is done.  Clean up!
       VOL_INDEX=0;
       drinkList=(*drinkList).next;
       NUM_DRINKS--;//decrement the number of drinks in the drink list
-    }else{
-       POUR_TIME++;
-       if(POUR_TIME*ML_PER_MIN/60/1000>=(*drinkList).volumes[VOL_INDEX]){
-         (*drinkList).volumes[VOL_INDEX]=0;
-       }
     }
-    
+    else{
+      POUR_TIME++;
+      if(POUR_TIME*ML_PER_MIN/60/1000>=(*drinkList).volumes[VOL_INDEX]){
+        (*drinkList).volumes[VOL_INDEX]=0;
+      }
+    }
+
   }
 }
+
+
+
+
