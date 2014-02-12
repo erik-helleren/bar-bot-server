@@ -9,10 +9,6 @@
 #define CLOCK_SPEED 16000000
 #define FLOW_METER_TIMEOUT_MS 1000
 #define ML_PER_MIN 1000
-//Defines for the buffer array
-#define VOL_INDEX buffer[0]
-#define NUM_DRINKS buffer[1]
-#define POUR_TIME buffer[2]
 
 
 //Pin defines
@@ -45,10 +41,11 @@ typedef struct Drink{//12*2+4=28 bytes
 
 //globals
 Drink *drinkList;
-//assored bytes used as a compact buffer for counters etc.  
-//Do not use any index in multiple interupts/main loop, see defines on top for more info
-byte buffer[4];
-int flowMeterCount;
+
+byte volumeIndex=0;//Used in interupt to check what its currently pouring
+int drinkQueueSize=0;//The size of the drink queue.  Disable interupts before changing outside of interupt
+long pourTime=0;//Used in interupt to count how long it has been pouring
+int flowMeterCount=0;
 unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
 
 
@@ -76,7 +73,6 @@ void setup(){
   
   Serial.begin(9600);
   attachInterrupt(0, flowInterupt, RISING);
-  buffer[0]=0;
   //Setup timmer interupt
   cli();//stop interrupts
   long desiredFrequency=1000;
@@ -117,21 +113,19 @@ void activatePump(int pumpID){
 //timmed interupt for drink dispensing
 ISR(TIMER1_COMPA_vect){
   if(drinkList!=0){
-    //set buffer 0 to be the frist non-zero volume in the drink.
-    for(;VOL_INDEX<=NUMBER_PUMPS && (*drinkList).volumes[VOL_INDEX]==0; 
-          VOL_INDEX++,POUR_TIME=0);
-      if(buffer[VOL_INDEX]==NUMBER_PUMPS){//This drink is done.  Clean up!
-      VOL_INDEX=0;
+    for(;volumeIndex<=NUMBER_PUMPS && (*drinkList).volumes[volumeIndex]==0; 
+          volumeIndex++,pourTime=0);
+    if(volumeIndex==NUMBER_PUMPS){//This drink is done.  Clean up!
+      volumeIndex=0;
       drinkList=(*drinkList).next;
-      NUM_DRINKS--;//decrement the number of drinks in the drink list
+      drinkQueueSize--;//decrement the number of drinks in the drink list
     }
     else{
-      POUR_TIME++;
-      if(POUR_TIME*ML_PER_MIN/60/1000>=(*drinkList).volumes[VOL_INDEX]){
-        (*drinkList).volumes[VOL_INDEX]=0;
+      pourTime++;
+      if(pourTime*ML_PER_MIN/60/1000>=(*drinkList).volumes[volumeIndex]){
+        (*drinkList).volumes[volumeIndex]=0;
       }
     }
-
   }
 }
 
