@@ -30,8 +30,8 @@
 //Ethernet globals
 byte mac[] = { 
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip(10, 0, 0, 20); // IP address, may need to change depending on network
-EthernetServer server(80);  // create a server at port 80
+IPAddress ip(192,168,2, 20); // IP address, may need to change depending on network
+EthernetServer server(1234);  // create a server at port 80
 
 //typedef's
 typedef struct Drink{//12*2+4=28 bytes
@@ -56,8 +56,14 @@ void flowInterupt(){
 }
 
 void setup(){
+  //Dummy mode setup:
+  pinMode(53,OUTPUT);
+  pinMode(46,OUTPUT);
+  digitalWrite(53,LOW);
+  digitalWrite(46,LOW);
+  
   //Pin setups:
-  pinMode(PIN_FLOW_METER, INPUT);
+  /*pinMode(PIN_FLOW_METER, INPUT);
   pinMode(PIN_PUMP_1 , OUTPUT);
   pinMode(PIN_PUMP_2 , OUTPUT);
   pinMode(PIN_PUMP_3 , OUTPUT);
@@ -70,37 +76,48 @@ void setup(){
   pinMode(PIN_PUMP_10, OUTPUT);
   pinMode(PIN_PUMP_11, OUTPUT);
   pinMode(PIN_PUMP_12, OUTPUT);
+  */
   
   Serial.begin(9600);
-  attachInterrupt(0, flowInterupt, RISING);
+  //attachInterrupt(0, flowInterupt, RISING);
   //Setup timmer interupt
   cli();//stop interrupts
-  long desiredFrequency=1000;
-  int cycles=(CLOCK_SPEED/desiredFrequency)/64;
+  long desiredFrequency=1;
+  int cycles=2*(CLOCK_SPEED/desiredFrequency)/1024;
   TCCR1A = 0;// set entire TCCR1A register to 0
   TCCR1B = 0;
   TCNT1  = 0;
   OCR1A = cycles;
   TCCR1B |= (1 << WGM12);
   // Set CS10 bit for 64 prescaler
-  TCCR1B |= (1 << CS11)|(1 << CS10) ;  
+  TCCR1B |= (1 << CS12)|(1 << CS10) ;  
   TIMSK1 |= (1 << OCIE1A);
   sei();//allow interrupts
   //End timmed interupt setup
 
   //Setup for Ethernet Card
-  Ethernet.begin(mac, ip);  // initialize Ethernet device
+  Ethernet.begin(mac);  // initialize Ethernet device
   server.begin();           // start to listen for clients
   //End Ethernet Setup
   
   //Data setup
-  drinkList=0;
+  //drinkList=0;
 }
-
+byte b=0;
 void loop(){
   EthernetClient client = server.available();  // try to get client
   if(client){
-    //try to avoid storing the response if possible.
+    Serial.println("Got Client");
+    b=client.read();
+    Serial.println(b);
+    while(client.read()>=0);
+    client.stop();
+    for(;b>0;b--){
+      digitalWrite(46,HIGH);
+      delay(1000);
+      digitalWrite(46,LOW);
+      delay(1000);
+    }
   }
 }
 
@@ -108,10 +125,19 @@ void loop(){
 void activatePump(int pumpID){
 
 }
-
-
+//Dummy client
+int greenBlink=0;
+int numberRed=0;
 //timmed interupt for drink dispensing
 ISR(TIMER1_COMPA_vect){
+  if(greenBlink==0){
+    digitalWrite(53,HIGH);
+    greenBlink=1;
+  }else{
+    digitalWrite(53,LOW);
+    greenBlink=0;
+  }
+  /*
   if(drinkList!=0){
     for(;volumeIndex<=NUMBER_PUMPS && (*drinkList).volumes[volumeIndex]==0; 
           volumeIndex++,pourTime=0);
@@ -126,7 +152,7 @@ ISR(TIMER1_COMPA_vect){
         (*drinkList).volumes[volumeIndex]=0;
       }
     }
-  }
+  }*/
 }
 
 
