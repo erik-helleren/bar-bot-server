@@ -37,7 +37,6 @@ EthernetServer server(1234);  // create a server at port 80
 //typedef's
 typedef struct Drink{//12*2+4=28 bytes
   short volumes[NUMBER_PUMPS];
-  Drink *next;
 };
 
 //globals
@@ -140,6 +139,7 @@ void activatePump(int pumpID){
 int greenBlink=0;
 //timmed interupt for drink dispensing
 ISR(TIMER1_COMPA_vect){
+/*
   if(greenBlink==0){
     digitalWrite(53,HIGH);
     greenBlink=1;
@@ -147,12 +147,16 @@ ISR(TIMER1_COMPA_vect){
     digitalWrite(53,LOW);
     greenBlink=0;
   }
-  /*
-  if(drinkList!=0){
+  */
+  if(drinkQueueSize>0){
     for(;volumeIndex<=NUMBER_PUMPS && drinkList[0].volumes[volumeIndex]==0; 
           volumeIndex++,pourTime=0);
     if(volumeIndex==NUMBER_PUMPS){//This drink is done.  Clean up!
       volumeIndex=0;
+      drinkQueueSize--;
+      for(int i=0;i<MAX_DRINKS-1;i++){
+          drinkList[i]=drinkList[i++]; 
+      }
     }
     else{
       pourTime++;
@@ -160,7 +164,7 @@ ISR(TIMER1_COMPA_vect){
         drinkList[0].volumes[volumeIndex]=0;
       }
     }
-  }*/
+  }
 }
 
 
@@ -169,6 +173,11 @@ void makeDrink(EthernetClient client){
     client.flush();
     client.write((byte)01); delay(1); client.stop(); return;
   }
+  //make sure the drink you are about to edit is empty:
+  for(int i=0;i<NUMBER_PUMPS;i++){
+    drinkList[drinkQueueSize].volumes[i]=0;
+  }
+  
   byte numberIngerdients=client.read();
   for(int i=0;i<numberIngerdients;i++){
     int pump=client.read();
