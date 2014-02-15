@@ -26,6 +26,7 @@
 #define PIN_PUMP_11 32
 #define PIN_PUMP_12 33
 
+#define MAX_DRINKS 10
 
 //Ethernet globals
 byte mac[] = { 
@@ -40,14 +41,13 @@ typedef struct Drink{//12*2+4=28 bytes
 };
 
 //globals
-Drink *drinkList;
+Drink drinkList[ MAX_DRINKS ];
 
 byte volumeIndex=0;//Used in interupt to check what its currently pouring
 int drinkQueueSize=0;//The size of the drink queue.  Disable interupts before changing outside of interupt
 long pourTime=0;//Used in interupt to count how long it has been pouring
 int flowMeterCount=0;
 unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
-
 
 //interupt for the flow meter
 void flowInterupt(){
@@ -99,14 +99,13 @@ void setup(){
   Ethernet.begin(mac);  // initialize Ethernet device
   server.begin();           // start to listen for clients
   //End Ethernet Setup
-  
-  //Data setup
-  //drinkList=0;
 }
-byte b=0;
+
 void loop(){
   EthernetClient client = server.available();  // try to get client
   if(client){
+    //blink code
+    /*
     Serial.println("Got Client");
     b=client.read();
     Serial.println(b);
@@ -118,6 +117,16 @@ void loop(){
       digitalWrite(46,LOW);
       delay(1000);
     }
+    */
+    //Actual code
+    byte requestType=client.read();
+    if(requestType==0){ //return status of the device
+      getStatus(client);
+    }else if(requestType==1||requestType==2){//Queue a drink
+      makeDrink(client);
+    }else if(requestType==3){
+      
+    }
   }
 }
 
@@ -125,9 +134,10 @@ void loop(){
 void activatePump(int pumpID){
 
 }
+
+
 //Dummy client
 int greenBlink=0;
-int numberRed=0;
 //timmed interupt for drink dispensing
 ISR(TIMER1_COMPA_vect){
   if(greenBlink==0){
@@ -139,22 +149,54 @@ ISR(TIMER1_COMPA_vect){
   }
   /*
   if(drinkList!=0){
-    for(;volumeIndex<=NUMBER_PUMPS && (*drinkList).volumes[volumeIndex]==0; 
+    for(;volumeIndex<=NUMBER_PUMPS && drinkList[0].volumes[volumeIndex]==0; 
           volumeIndex++,pourTime=0);
     if(volumeIndex==NUMBER_PUMPS){//This drink is done.  Clean up!
       volumeIndex=0;
-      drinkList=(*drinkList).next;
-      drinkQueueSize--;//decrement the number of drinks in the drink list
     }
     else{
       pourTime++;
-      if(pourTime*ML_PER_MIN/60/1000>=(*drinkList).volumes[volumeIndex]){
-        (*drinkList).volumes[volumeIndex]=0;
+      if(pourTime*ML_PER_MIN/60/1000>=drinkList[0].volumes[volumeIndex]){
+        drinkList[0].volumes[volumeIndex]=0;
       }
     }
   }*/
 }
 
 
+void makeDrink(EthernetClient client){
+  if(drinkQueueSize>=MAX_DRINKS){//currently has the max number of drinks queued
+    client.flush();
+    client.write((byte)01); delay(1); client.stop(); return;
+  }
+  byte numberIngerdients=client.read();
+  for(int i=0;i<numberIngerdients;i++){
+    int pump=client.read();
+    if(pump==-1){// client ended input stream early
+      client.write((byte)2);delay(1);client.stop();return;
+    }else if(pump>=NUMBER_PUMPS){//invalid pump number
+      client.write((byte)5);delay(1);client.stop();return;
+    }
+    int volume=client.read();
+    if(volume==-1){//client ended input stream early
+      client.write((byte)2);delay(1);client.stop();return;
+    }
+    drinkList[drinkQueueSize].volumes[pump]=volume;
+  }
+  if(client.read()>=0){//client should have ended output, return error
+    client.write((byte)2);delay(1);client.stop();return;
+  }
+  drinkQueueSize++;
+}
+
+void getStatus(EthernetClient client){
+  client.write((byte)0);
+  client.write((byte)NUMBER_PUMPS);
+  for(int i=0;i<NUMBER_PUMPS;i++){
+    client.write((byte)126);
+  }
+  delay(1);
+  client.stop();
+}
 
 
