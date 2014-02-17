@@ -14,40 +14,40 @@
 
 //Pin defines
 #define PIN_FLOW_METER 21
-#define PIN_PUMP_1  22
-#define PIN_PUMP_2  23
-#define PIN_PUMP_3  24
-#define PIN_PUMP_4  25
-#define PIN_PUMP_5  26
-#define PIN_PUMP_6  27
-#define PIN_PUMP_7  28
-#define PIN_PUMP_8  29
-#define PIN_PUMP_9  30
-#define PIN_PUMP_10 31
-#define PIN_PUMP_11 32
-#define PIN_PUMP_12 33
+#define D_PIN_PUMP_1  22
+#define D_PIN_PUMP_2  23
+#define D_PIN_PUMP_3  24
+#define D_PIN_PUMP_4  25
+#define D_PIN_PUMP_5  26
+#define D_PIN_PUMP_6  27
+#define D_PIN_PUMP_7  28
+#define D_PIN_PUMP_8  29
+#define D_PIN_PUMP_9  30
+#define D_PIN_PUMP_10 31
+#define D_PIN_PUMP_11 32
+#define D_PIN_PUMP_12 33
 
-#define PUMP_LEVEL_1 1
-#define PUMP_LEVEL_2 2
-#define PUMP_LEVEL_3 3
-#define PUMP_LEVEL_4 4
-#define PUMP_LEVEL_5 5
-#define PUMP_LEVEL_6 6
-#define PUMP_LEVEL_7 7
-#define PUMP_LEVEL_8 8
-#define PUMP_LEVEL_9 9
-#define PUMP_LEVEL_10 10
-#define PUMP_LEVEL_11 11
-#define PUMP_LEVEL_12 12
+#define A_PIN_PUMP_LEVEL_1 1
+#define A_PIN_PUMP_LEVEL_2 2
+#define A_PIN_PUMP_LEVEL_3 3
+#define A_PIN_PUMP_LEVEL_4 4
+#define A_PIN_PUMP_LEVEL_5 5
+#define A_PIN_PUMP_LEVEL_6 6
+#define A_PIN_PUMP_LEVEL_7 7
+#define A_PIN_PUMP_LEVEL_8 8
+#define A_PIN_PUMP_LEVEL_9 9
+#define A_PIN_PUMP_LEVEL_10 10
+#define A_PIN_PUMP_LEVEL_11 11
+#define A_PIN_PUMP_LEVEL_12 12
 
 #define MAX_DRINKS 10
 //Arrays for convenience
-const int Pumps[NUMBER_PUMPS]={PIN_PUMP_1,PIN_PUMP_2,PIN_PUMP_3,PIN_PUMP_4,
-    PIN_PUMP_5,PIN_PUMP_6,PIN_PUMP_7,PIN_PUMP_8,PIN_PUMP_9,
-    PIN_PUMP_10,PIN_PUMP_11,PIN_PUMP_12};
-const int FluidMeters[NUMBER_PUMPS]={PUMP_LEVEL_1,PUMP_LEVEL_2,PUMP_LEVEL_3,PUMP_LEVEL_4,
-    PUMP_LEVEL_5,PUMP_LEVEL_6,PUMP_LEVEL_7,PUMP_LEVEL_8,PUMP_LEVEL_9,
-    PUMP_LEVEL_10,PUMP_LEVEL_11,PUMP_LEVEL_12};
+const int Pumps[NUMBER_PUMPS]={D_PIN_PUMP_1,D_PIN_PUMP_2,D_PIN_PUMP_3,D_PIN_PUMP_4,
+    D_PIN_PUMP_5,D_PIN_PUMP_6,D_PIN_PUMP_7,D_PIN_PUMP_8,D_PIN_PUMP_9,
+    D_PIN_PUMP_10,D_PIN_PUMP_11,D_PIN_PUMP_12};
+const int FluidMeters[NUMBER_PUMPS]={A_PIN_PUMP_LEVEL_1,A_PIN_PUMP_LEVEL_2,A_PIN_PUMP_LEVEL_3,A_PIN_PUMP_LEVEL_4,
+    A_PIN_PUMP_LEVEL_5,A_PIN_PUMP_LEVEL_6,A_PIN_PUMP_LEVEL_7,A_PIN_PUMP_LEVEL_8,A_PIN_PUMP_LEVEL_9,
+    A_PIN_PUMP_LEVEL_10,A_PIN_PUMP_LEVEL_11,A_PIN_PUMP_LEVEL_12};
     
 //Ethernet globals
 byte mac[] = { 
@@ -83,19 +83,11 @@ void setup(){
   digitalWrite(46,LOW);
   
   //Pin setups:
-  /*pinMode(PIN_FLOW_METER, INPUT);
-  pinMode(PIN_PUMP_1 , OUTPUT);
-  pinMode(PIN_PUMP_2 , OUTPUT);
-  pinMode(PIN_PUMP_3 , OUTPUT);
-  pinMode(PIN_PUMP_4 , OUTPUT);
-  pinMode(PIN_PUMP_5 , OUTPUT);
-  pinMode(PIN_PUMP_6 , OUTPUT);
-  pinMode(PIN_PUMP_7 , OUTPUT);
-  pinMode(PIN_PUMP_8 , OUTPUT);
-  pinMode(PIN_PUMP_9 , OUTPUT);
-  pinMode(PIN_PUMP_10, OUTPUT);
-  pinMode(PIN_PUMP_11, OUTPUT);
-  pinMode(PIN_PUMP_12, OUTPUT);
+  /*
+  pinMode(PIN_FLOW_METER, INPUT);
+  for(int i=0;i<NUMBER_PUMPS;i++){
+    pinMode(Pumps[i],OUTPUT);
+  }
   */
   
   Serial.begin(9600);
@@ -118,9 +110,8 @@ void loop(){
   EthernetClient client = server.available();  // try to get client
   if(client){
     //blink code
-    /*
     Serial.println("Got Client");
-    b=client.read();
+    byte b=client.read();
     Serial.println(b);
     while(client.read()>=0);
     client.stop();
@@ -130,8 +121,8 @@ void loop(){
       digitalWrite(46,LOW);
       delay(1000);
     }
-    */
     //Actual code
+    /*
     byte requestType=client.read();
     if(requestType==0){ //return status of the device
       getStatus(client);
@@ -139,20 +130,22 @@ void loop(){
       makeDrink(client);
     }else if(requestType==3){//check status of drink
       
-    }
+    } */
   }
 }
 
 //logic to activate a pump
 void activatePump(int pumpID){
-
+    for(int i=0;i<NUMBER_PUMPS;i++){
+        digitalWrite(Pumps[i],LOW);
+    }
+    digitalWrite(Pumps[pumpID],HIGH);
 }
 
 //Dummy client
 int greenBlink=0;
 //timmed interupt for drink dispensing
 void timedInterupt(){
-/*
   if(greenBlink==0){
     digitalWrite(53,HIGH);
     greenBlink=1;
@@ -160,7 +153,7 @@ void timedInterupt(){
     digitalWrite(53,LOW);
     greenBlink=0;
   }
-  */
+  /*
   if(drinkQueueSize>0){
     for(;volumeIndex<=NUMBER_PUMPS && drinkList[0].volumes[volumeIndex]==0; 
           volumeIndex++,pourTime=0);
@@ -178,6 +171,7 @@ void timedInterupt(){
       }
     }
   }
+  */
 }
 
 
