@@ -1,0 +1,14 @@
+﻿Added TimerThree library
+
+I replaced the manual implementation of a timer interrupt with an object library.  It makes it a little more stable and cleaner. 
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+# On branch master
+# Your branch is up-to-date with 'origin/master'.
+#
+# Changes to be committed:
+#	new file:   server/Timer3/TimerThree.cpp
+#	new file:   server/Timer3/TimerThree.h
+#	modified:   server/server.ino
+#
+

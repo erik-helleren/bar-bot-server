@@ -27,6 +27,19 @@
 #define PIN_PUMP_11 32
 #define PIN_PUMP_12 33
 
+#define PUMP_LEVEL_1 A1
+#define PUMP_LEVEL_2 A2
+#define PUMP_LEVEL_3 A3
+#define PUMP_LEVEL_4 A4
+#define PUMP_LEVEL_5 A5
+#define PUMP_LEVEL_6 A6
+#define PUMP_LEVEL_7 A7
+#define PUMP_LEVEL_8 A8
+#define PUMP_LEVEL_9 A9
+#define PUMP_LEVEL_10 A10
+#define PUMP_LEVEL_11 A11
+#define PUMP_LEVEL_12 A12
+
 #define MAX_DRINKS 10
 
 //Ethernet globals
@@ -45,6 +58,7 @@ Drink drinkList[ MAX_DRINKS ];
 byte volumeIndex=0;//Used in interupt to check what its currently pouring
 int drinkQueueSize=0;//The size of the drink queue.  Disable interupts before changing outside of interupt
 long pourTime=0;//Used in interupt to count how long it has been pouring
+
 int flowMeterCount=0;
 unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
 
@@ -84,6 +98,7 @@ void setup(){
   long desiredFrequency=1;
   int microSeconds=(1000000/desiredFrequency);
   Timer3.attachInterrupt(timedInterupt,microSeconds);
+  Timer3.start();
   //End timmed interupt setup
 
   //Setup for Ethernet Card
