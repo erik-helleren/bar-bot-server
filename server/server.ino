@@ -86,11 +86,10 @@ void setup(){
   Serial.begin(9600);
   //attachInterrupt(0, flowInterupt, RISING);
   //Setup timmer interupt
-  cli();//stop interrupts
   long desiredFrequency=1;
   int microSeconds=(1000000/desiredFrequency);
+  Timer3.initialize(microSeconds);
   Timer3.attachInterrupt(timedInterupt,microSeconds);
-  Timer3.start();
   //End timmed interupt setup
 
   //Setup for Ethernet Card
