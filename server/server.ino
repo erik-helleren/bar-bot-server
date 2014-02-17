@@ -3,6 +3,7 @@
 
 #include <Ethernet.h>
 #include <SPI.h>
+#include <TimerThree.h>
 
 
 #define NUMBER_PUMPS 12
@@ -41,7 +42,6 @@ typedef struct Drink{//12*2+4=28 bytes
 
 //globals
 Drink drinkList[ MAX_DRINKS ];
-
 byte volumeIndex=0;//Used in interupt to check what its currently pouring
 int drinkQueueSize=0;//The size of the drink queue.  Disable interupts before changing outside of interupt
 long pourTime=0;//Used in interupt to count how long it has been pouring
@@ -82,16 +82,8 @@ void setup(){
   //Setup timmer interupt
   cli();//stop interrupts
   long desiredFrequency=1;
-  int cycles=2*(CLOCK_SPEED/desiredFrequency)/1024;
-  TCCR1A = 0;// set entire TCCR1A register to 0
-  TCCR1B = 0;
-  TCNT1  = 0;
-  OCR1A = cycles;
-  TCCR1B |= (1 << WGM12);
-  // Set CS10 bit for 64 prescaler
-  TCCR1B |= (1 << CS12)|(1 << CS10) ;  
-  TIMSK1 |= (1 << OCIE1A);
-  sei();//allow interrupts
+  int microSeconds=(1000000/desiredFrequency);
+  Timer3.attachInterrupt(timedInterupt,microSeconds);
   //End timmed interupt setup
 
   //Setup for Ethernet Card
@@ -138,7 +130,7 @@ void activatePump(int pumpID){
 //Dummy client
 int greenBlink=0;
 //timmed interupt for drink dispensing
-ISR(TIMER1_COMPA_vect){
+void timedInterupt(){
 /*
   if(greenBlink==0){
     digitalWrite(53,HIGH);
