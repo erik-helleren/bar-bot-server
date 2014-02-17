@@ -23,9 +23,10 @@ void setup(){
   //attachInterrupt(0, flowInterupt, RISING);
   //Setup timmer interupt
   long desiredFrequency=1;
-  int microSeconds=(1000000/desiredFrequency);
+  long microSeconds=(1000000/desiredFrequency);
+  
+  Timer3.initialize(microSeconds);
   Timer3.attachInterrupt(timedInterupt,microSeconds);
-  Timer3.start();
   //End timmed interupt setup
 
   //Setup for Ethernet Card
