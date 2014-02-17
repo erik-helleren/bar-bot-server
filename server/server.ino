@@ -76,19 +76,12 @@ void flowInterupt(){
 }
 
 void setup(){
-  //Dummy mode setup:
-  pinMode(53,OUTPUT);
-  pinMode(46,OUTPUT);
-  digitalWrite(53,LOW);
-  digitalWrite(46,LOW);
-  
   //Pin setups:
-  /*
   pinMode(PIN_FLOW_METER, INPUT);
   for(int i=0;i<NUMBER_PUMPS;i++){
     pinMode(Pumps[i],OUTPUT);
   }
-  */
+  
   
   Serial.begin(9600);
   //attachInterrupt(0, flowInterupt, RISING);
@@ -109,20 +102,6 @@ void setup(){
 void loop(){
   EthernetClient client = server.available();  // try to get client
   if(client){
-    //blink code
-    Serial.println("Got Client");
-    byte b=client.read();
-    Serial.println(b);
-    while(client.read()>=0);
-    client.stop();
-    for(;b>0;b--){
-      digitalWrite(46,HIGH);
-      delay(1000);
-      digitalWrite(46,LOW);
-      delay(1000);
-    }
-    //Actual code
-    /*
     byte requestType=client.read();
     if(requestType==0){ //return status of the device
       getStatus(client);
@@ -130,7 +109,7 @@ void loop(){
       makeDrink(client);
     }else if(requestType==3){//check status of drink
       
-    } */
+    } 
   }
 }
 
