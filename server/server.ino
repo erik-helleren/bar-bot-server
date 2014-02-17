@@ -27,21 +27,28 @@
 #define PIN_PUMP_11 32
 #define PIN_PUMP_12 33
 
-#define PUMP_LEVEL_1 A1
-#define PUMP_LEVEL_2 A2
-#define PUMP_LEVEL_3 A3
-#define PUMP_LEVEL_4 A4
-#define PUMP_LEVEL_5 A5
-#define PUMP_LEVEL_6 A6
-#define PUMP_LEVEL_7 A7
-#define PUMP_LEVEL_8 A8
-#define PUMP_LEVEL_9 A9
-#define PUMP_LEVEL_10 A10
-#define PUMP_LEVEL_11 A11
-#define PUMP_LEVEL_12 A12
+#define PUMP_LEVEL_1 1
+#define PUMP_LEVEL_2 2
+#define PUMP_LEVEL_3 3
+#define PUMP_LEVEL_4 4
+#define PUMP_LEVEL_5 5
+#define PUMP_LEVEL_6 6
+#define PUMP_LEVEL_7 7
+#define PUMP_LEVEL_8 8
+#define PUMP_LEVEL_9 9
+#define PUMP_LEVEL_10 10
+#define PUMP_LEVEL_11 11
+#define PUMP_LEVEL_12 12
 
 #define MAX_DRINKS 10
-
+//Arrays for convenience
+const int Pumps[NUMBER_PUMPS]={PIN_PUMP_1,PIN_PUMP_2,PIN_PUMP_3,PIN_PUMP_4,
+    PIN_PUMP_5,PIN_PUMP_6,PIN_PUMP_7,PIN_PUMP_8,PIN_PUMP_9,
+    PIN_PUMP_10,PIN_PUMP_11,PIN_PUMP_12};
+const int FluidMeters[NUMBER_PUMPS]={PUMP_LEVEL_1,PUMP_LEVEL_2,PUMP_LEVEL_3,PUMP_LEVEL_4,
+    PUMP_LEVEL_5,PUMP_LEVEL_6,PUMP_LEVEL_7,PUMP_LEVEL_8,PUMP_LEVEL_9,
+    PUMP_LEVEL_10,PUMP_LEVEL_11,PUMP_LEVEL_12};
+    
 //Ethernet globals
 byte mac[] = { 
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
@@ -58,9 +65,9 @@ Drink drinkList[ MAX_DRINKS ];
 byte volumeIndex=0;//Used in interupt to check what its currently pouring
 int drinkQueueSize=0;//The size of the drink queue.  Disable interupts before changing outside of interupt
 long pourTime=0;//Used in interupt to count how long it has been pouring
-
 int flowMeterCount=0;
 unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
+byte fluidLevels[NUMBER_PUMPS];//the last know fluid levels
 
 //interupt for the flow meter
 void flowInterupt(){
@@ -130,7 +137,7 @@ void loop(){
       getStatus(client);
     }else if(requestType==1||requestType==2){//Queue a drink
       makeDrink(client);
-    }else if(requestType==3){
+    }else if(requestType==3){//check status of drink
       
     }
   }
@@ -140,7 +147,6 @@ void loop(){
 void activatePump(int pumpID){
 
 }
-
 
 //Dummy client
 int greenBlink=0;
@@ -208,11 +214,21 @@ void makeDrink(EthernetClient client){
 void getStatus(EthernetClient client){
   client.write((byte)0);
   client.write((byte)NUMBER_PUMPS);
-  for(int i=0;i<NUMBER_PUMPS;i++){
-    client.write((byte)126);
-  }
+  client.write(fluidLevels,NUMBER_PUMPS);
   delay(1);
   client.stop();
+}
+//Will take a minimum of 4ms to execute.
+void updateFluidLevels(){
+    //probably turn on a digital pin to prevent the wire from being on for a long time
+    for(int i=0;i<NUMBER_PUMPS;i++){
+        fluidLevels[i]=readLevelSensor(i);
+    }
+    //turn off the digital pin
+}
+byte readLevelSensor(int pump){
+    int val=analogRead(FluidMeters[pump]);
+    return (byte)(val*255/1024);//scale val to a byte and return it
 }
 
 
