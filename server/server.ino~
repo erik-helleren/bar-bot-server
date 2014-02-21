@@ -147,8 +147,9 @@ void timedInterupt(){
         digitalWrite(Pumps[i],LOW);//Really make sure its off
       }
     }//end for each fluid
-    if(numOn==0){
-      popDrinkQueue();
+    if(numOn==0){//if there are no pumps on
+      popDrinkQueue();//pop the drink because its finished
+      //TODO any other code required here
     }
   }//end if there are drinks
 }

@@ -66,8 +66,6 @@ byte volumeIndex=0;//Used in interupt to check what its currently pouring
 volatile byte drinkQueueSize=0;//volitile becase the interupt might change the value as you are making a new drink.
 //Also a single byte because the compiler makes byte operations atomic,
 //required to prevent races with the interupts.
-volatile bool lockDrinkQueueSize=false;
-volatile bool popped=false;
 int flowMeterCount=0;
 unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
 byte fluidLevels[NUMBER_PUMPS];//the last know fluid levels
@@ -114,14 +112,6 @@ void loop(){
       
     } 
   }
-}
-
-//logic to activate a pump
-void activatePump(int pumpID){
-    for(int i=0;i<NUMBER_PUMPS;i++){
-        digitalWrite(Pumps[i],LOW);
-    }
-    digitalWrite(Pumps[pumpID],HIGH);
 }
 
 //Dummy client
