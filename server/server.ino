@@ -14,6 +14,10 @@
 
 //Pin defines
 #define PIN_FLOW_METER 21
+#define D_PIN_PIPE 22
+#define D_PIN_LEVEL_CRITICAL 23
+#define D_PIN_LEVEL_LOW 24
+
 #define D_PIN_PUMP_1  53
 #define D_PIN_PUMP_2  51
 #define D_PIN_PUMP_3  49
@@ -22,23 +26,23 @@
 #define D_PIN_PUMP_6  43
 #define D_PIN_PUMP_7  41
 #define D_PIN_PUMP_8  39
-#define D_PIN_PUMP_9  30
-#define D_PIN_PUMP_10 31
-#define D_PIN_PUMP_11 32
-#define D_PIN_PUMP_12 33
+#define D_PIN_PUMP_9  37
+#define D_PIN_PUMP_10 35
+#define D_PIN_PUMP_11 33
+#define D_PIN_PUMP_12 31
 
-#define A_PIN_PUMP_LEVEL_1 1
-#define A_PIN_PUMP_LEVEL_2 2
-#define A_PIN_PUMP_LEVEL_3 3
-#define A_PIN_PUMP_LEVEL_4 4
-#define A_PIN_PUMP_LEVEL_5 5
-#define A_PIN_PUMP_LEVEL_6 6
-#define A_PIN_PUMP_LEVEL_7 7
-#define A_PIN_PUMP_LEVEL_8 8
-#define A_PIN_PUMP_LEVEL_9 9
-#define A_PIN_PUMP_LEVEL_10 10
-#define A_PIN_PUMP_LEVEL_11 11
-#define A_PIN_PUMP_LEVEL_12 12
+#define A_PIN_PUMP_LEVEL_1 52
+#define A_PIN_PUMP_LEVEL_2 50
+#define A_PIN_PUMP_LEVEL_3 48
+#define A_PIN_PUMP_LEVEL_4 46
+#define A_PIN_PUMP_LEVEL_5 44
+#define A_PIN_PUMP_LEVEL_6 42
+#define A_PIN_PUMP_LEVEL_7 40
+#define A_PIN_PUMP_LEVEL_8 38
+#define A_PIN_PUMP_LEVEL_9 36
+#define A_PIN_PUMP_LEVEL_10 34
+#define A_PIN_PUMP_LEVEL_11 32
+#define A_PIN_PUMP_LEVEL_12 30
 
 #define MAX_DRINKS 10
 //Arrays for convenience
@@ -69,7 +73,7 @@ volatile byte drinkQueueSize=0;//volitile becase the interupt might change the v
 int flowMeterCount=0;
 unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
 byte fluidLevels[NUMBER_PUMPS];//the last know fluid levels
-
+byte fluidInPipes[NUMBER_PUMPS];//last Checked fluids at pump output
 //interupt for the flow meter
 void flowInterupt(){
   flowMeterCount++;
@@ -81,7 +85,9 @@ void setup(){
   pinMode(PIN_FLOW_METER, INPUT);
   for(int i=0;i<NUMBER_PUMPS;i++){
     pinMode(Pumps[i],OUTPUT);
+    pinMode(FluidMeters[i],INPUT);
   }
+  pinMode(D_PIN_PIPE,OUTPUT);
   
   
   Serial.begin(9600);
@@ -119,14 +125,13 @@ int greenBlink=0;
 //timmed interupt for drink dispensing
 void timedInterupt(){
   if(drinkQueueSize>0){
+    updateFluidInPipes();
     int numOn=0;
     for(int i=0;i<NUMBER_PUMPS;i++){
       if(drinkList[0].volumes[i]>0){
-        //check to see if fluid is flowing through this hose
-        bool fluidFlow=true;
-        if(fluidFlow){
+        if(fluidInPipes[i]==HIGH){//if the sensor says there is fluid in the hose
           drinkList[0].volumes[i]--;
-        }
+        }//if this evaluates as false, fluid is not exiting the hose, not getting to the drink
         if(drinkList[0].volumes[i]>0){//if there is volume left
           digitalWrite(Pumps[i],HIGH);//turn on the pump
           numOn++;
@@ -146,7 +151,6 @@ void timedInterupt(){
 
 void popDrinkQueue(){
   drinkQueueSize--;
-  popped=true;
   for(int i=0;i<MAX_DRINKS-1;i++){
     drinkList[i]=drinkList[i++]; 
   }
@@ -203,6 +207,14 @@ void updateFluidLevels(){
 byte readLevelSensor(int pump){
     int val=analogRead(FluidMeters[pump]);
     return (byte)(val*255/1024);//scale val to a byte and return it
+}
+
+void updateFluidInPipes(){
+  digitalWrite(D_PIN_PIPE,HIGH);
+  //maybeDelay
+  for(int i=0;i<NUMBER_PUMPS;i++){
+    fluidInPipes[i]=digitalRead(FluidMeters[i]);
+  }
 }
 
 
