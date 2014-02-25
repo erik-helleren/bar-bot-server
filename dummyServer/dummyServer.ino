@@ -48,7 +48,6 @@ void loop(){
 
 void makeDrink(EthernetClient client){
   if(drinkQueueSize>=MAX_DRINKS){//currently has the max number of drinks queued
-    Serial.println("queue full");
     client.flush();
     client.write((byte)1); delay(1); client.stop(); return;
   }
@@ -56,32 +55,31 @@ void makeDrink(EthernetClient client){
   for(int i=0;i<NUMBER_PUMPS;i++){
     drinkList[drinkQueueSize].volumes[i]=0;
   }
-  while(client.available()==0);
+  if(waitForAvaliableBytes(client,1,500)==-1){
+    client.write((byte)2);delay(1);client.stop();return;
+  }
   byte numberIngerdients=client.read();
   Serial.print("Got ingeridents: ");
   Serial.print((int)numberIngerdients);
   Serial.println(' ');
-  while(client.available()<numberIngerdients*2);
+  if(waitForAvaliableBytes(client,numberIngerdients*2,500)==-1){
+    client.write((byte)2);delay(1);client.stop();return;
+  }
   Serial.println("Got avaliable bytes");
   for(int i=0;i<numberIngerdients;i++){
     int pump=client.read();
     Serial.print("Pump : ");
     Serial.print(pump);
     Serial.println(' ');
-    if(pump==-1){// client ended input stream early
-      Serial.println("No pump");
-      client.write((byte)2);delay(1);client.stop();return;
-    }else if(pump>=NUMBER_PUMPS){//invalid pump number
+    if(pump>=NUMBER_PUMPS){//invalid pump number
+      Serial.println("invalid pump");
       client.write((byte)5);delay(1);client.stop();return;
     }
     int volume=client.read();
     Serial.print("Volume : ");
     Serial.print(volume);
     Serial.println(' ');
-    if(volume==-1){//client ended input stream early
-      client.write((byte)2);delay(1);client.stop();return;
-    }
-    drinkList[drinkQueueSize].volumes[pump]=volume;
+    drinkList[drinkQueueSize].volumes[pump]+=volume;
   }
   if(client.read()>=0){//client should have ended output, return error
     client.write((byte)2);delay(1);client.stop();return;
@@ -105,5 +103,19 @@ void getStatus(EthernetClient client){
     client.write(2);
   delay(1);
   client.stop();
+}
+
+/**
+Returns negitive one if timeout reached, otherwise it will
+reutrn 1;
+*/
+int waitForAvaliableBytes(EthernetClient client, int bytesToWaitFor, int timeoutms){
+  unsigned long time =millis();
+  while(client.available()<bytesToWaitFor){
+    if(millis()-time>=timeoutms){
+      return -1;
+    }
+  }
+  return 1;
 }
 
