@@ -107,7 +107,7 @@ void getStatus(EthernetClient client){
 
 /**
 Returns negitive one if timeout reached, otherwise it will
-reutrn 1;
+reutrn 1
 */
 int waitForAvaliableBytes(EthernetClient client, int bytesToWaitFor, int timeoutms){
   unsigned long time =millis();

@@ -107,12 +107,18 @@ void setup(){
 }
 
 void loop(){
+  //Serial.println("Entering loop");
   EthernetClient client = server.available();  // try to get client
   if(client){
+    Serial.println("client gotten");
+    if(waitForAvaliableBytes(client,1,500)==-1){
+      client.stop();return;
+    }
     byte requestType=client.read();
     if(requestType==0){ //return status of the device
       getStatus(client);
     }else if(requestType==1||requestType==2){//Queue a drink
+      Serial.println("Make drink");
       makeDrink(client);
     }else if(requestType==3){//check status of drink
       
@@ -167,34 +173,49 @@ void makeDrink(EthernetClient client){
   for(int i=0;i<NUMBER_PUMPS;i++){
     drinkList[drinkQueueSize].volumes[i]=0;
   }
-  
+  if(waitForAvaliableBytes(client,1,500)==-1){
+    client.write((byte)2);delay(1);client.stop();return;
+  }
   byte numberIngerdients=client.read();
+  if(waitForAvaliableBytes(client,numberIngerdients*2,500)==-1){
+    client.write((byte)2);delay(1);client.stop();return;
+  }
   for(int i=0;i<numberIngerdients;i++){
     int pump=client.read();
-    if(pump==-1){// client ended input stream early
-      client.write((byte)2);delay(1);client.stop();return;
-    }else if(pump>=NUMBER_PUMPS){//invalid pump number
+    if(pump>=NUMBER_PUMPS){//invalid pump number
       client.write((byte)5);delay(1);client.stop();return;
     }
     int volume=client.read();
-    if(volume==-1){//client ended input stream early
-      client.write((byte)2);delay(1);client.stop();return;
-    }
-    drinkList[drinkQueueSize].volumes[pump]=volume;
+    drinkList[drinkQueueSize].volumes[pump]+=volume;
   }
   if(client.read()>=0){//client should have ended output, return error
     client.write((byte)2);delay(1);client.stop();return;
   }
-   
   drinkQueueSize++;
+  client.write((byte)0);delay(1);client.stop();return;
 }
 
 void getStatus(EthernetClient client){
   client.write((byte)0);
   client.write((byte)NUMBER_PUMPS);
-  client.write(fluidLevels,NUMBER_PUMPS);
+  for(int i=0;i<NUMBER_PUMPS;i++)
+    client.write(2);
   delay(1);
   client.stop();
+}
+
+/**
+Returns negitive one if timeout reached, otherwise it will
+reutrn 1
+*/
+int waitForAvaliableBytes(EthernetClient client, int bytesToWaitFor, int timeoutms){
+  unsigned long time =millis();
+  while(client.available()<bytesToWaitFor){
+    if(millis()-time>=timeoutms){
+      return -1;
+    }
+  }
+  return 1;
 }
 //Will take a minimum of 4ms to execute.
 void updateFluidLevels(){
