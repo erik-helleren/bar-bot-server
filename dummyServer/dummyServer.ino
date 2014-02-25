@@ -33,7 +33,9 @@ void loop(){
   EthernetClient client = server.available();  // try to get client
   if(client){
     Serial.println("client gotten");
-    while(client.available()==0);
+    if(waitForAvaliableBytes(client,1,500)==-1){
+      client.stop();return;
+    }
     byte requestType=client.read();
     if(requestType==0){ //return status of the device
       getStatus(client);
