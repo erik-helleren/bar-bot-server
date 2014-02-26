@@ -10,10 +10,11 @@
 #define CLOCK_SPEED 16000000
 #define FLOW_METER_TIMEOUT_MS 1000
 #define ML_PER_SEC 33
+//number of ML to try to pump, then give up
+#define ML_TIMEOUT 30
 
 
 //Pin defines
-#define PIN_FLOW_METER 21
 #define D_PIN_PIPE 22
 #define D_PIN_LEVEL_CRITICAL 23
 #define D_PIN_LEVEL_LOW 24
@@ -74,31 +75,26 @@ int flowMeterCount=0;
 unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
 byte fluidLevels[NUMBER_PUMPS];//the last know fluid levels
 byte fluidInPipes[NUMBER_PUMPS];//last Checked fluids at pump output
-//interupt for the flow meter
-void flowInterupt(){
-  flowMeterCount++;
-  lastFlowMeterTime=millis();
-}
+short fluidTimeouts[NUMBER_PUMPS];
 
 void setup(){
   //Pin setups:
-  pinMode(PIN_FLOW_METER, INPUT);
   for(int i=0;i<NUMBER_PUMPS;i++){
     pinMode(Pumps[i],OUTPUT);
     pinMode(FluidMeters[i],INPUT);
+    fluidTimeouts[i]=0;
   }
   pinMode(D_PIN_PIPE,OUTPUT);
   
   
   Serial.begin(9600);
-  //attachInterrupt(0, flowInterupt, RISING);
-  //Setup timmer interupt
+  //Setup timer interrupt
   long desiredFrequency=ML_PER_SEC;//Set frequency to be ml/sec so
-    //the interupt calls has a 1:1 ratio of calls to ml dispensed
+    //the interrupt calls has a 1:1 ratio of calls to ml dispensed
   int microSeconds=(1000000/desiredFrequency);
   Timer3.initialize(microSeconds);
   Timer3.attachInterrupt(timedInterupt,microSeconds);
-  //End timmed interupt setup
+  //End timed interrupt setup
 
   //Setup for Ethernet Card
   Ethernet.begin(mac);  // initialize Ethernet device
@@ -126,9 +122,7 @@ void loop(){
   }
 }
 
-//Dummy client
-int greenBlink=0;
-//timmed interupt for drink dispensing
+//timed interrupt for drink dispensing
 void timedInterupt(){
   if(drinkQueueSize>0){
     updateFluidInPipes();
@@ -138,6 +132,12 @@ void timedInterupt(){
         if(fluidInPipes[i]==HIGH){//if the sensor says there is fluid in the hose
           drinkList[0].volumes[i]--;
         }//if this evaluates as false, fluid is not exiting the hose, not getting to the drink
+        else{
+          fluidTimeouts[i]++;//increment the timeout so you know 
+          if(fluidTimeouts[i]>ML_TIMEOUT){//if the timeout is large enough
+            drinkList[0].volumes[i]=0;//give up on the fluid
+          }
+        }
         if(drinkList[0].volumes[i]>0){//if there is volume left
           digitalWrite(Pumps[i],HIGH);//turn on the pump
           numOn++;
@@ -160,8 +160,10 @@ void popDrinkQueue(){
   for(int i=0;i<MAX_DRINKS-1;i++){
     drinkList[i]=drinkList[i++]; 
   }
-  for(int i=0;i<NUMBER_PUMPS;i++)
+  for(int i=0;i<NUMBER_PUMPS;i++){
     drinkList[MAX_DRINKS-1].volumes[i]=0;
+    fluidTimeouts[i]=0;
+  }
   
 }
 void makeDrink(EthernetClient client){
