@@ -13,9 +13,6 @@
 #define vout1 23
 
 #define ml_per_sec 33
-#define ml_offset 7
-
-
 
 void setup(){
   pinMode(relay1,OUTPUT);
@@ -34,17 +31,15 @@ void setup(){
     //the interrupt calls has a 1:1 ratio of calls to ml dispensed
   int microSeconds=(1000000/desiredFrequency);
   Timer3.initialize(microSeconds);
-  Timer3.attachInterrupt(timedInterupt,microSeconds);
-  
+  Timer3.attachInterrupt(timedInterupt,microSeconds); 
+}
+
+void loop(){
 }
 int mL_target=10;
 int mL_poured=0;
 int delayCounter=0;
 int iterationCount=0;
-void loop(){
-  
-}
-
 
 void timedInterupt(){
   if(delayCounter>0){
