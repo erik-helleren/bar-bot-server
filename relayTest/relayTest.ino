@@ -34,10 +34,7 @@ void setup(){
   Timer3.attachInterrupt(timedInterupt,microSeconds); 
   Serial.begin(9600);
 }
-volatile int readS1=0;
 void loop(){
-  Serial.println(readS1);
-  delay(1);
 }
 int mL_target=10;
 int mL_poured=0;
@@ -51,8 +48,8 @@ void timedInterupt(){
   }
   if(mL_poured<mL_target){
     digitalWrite(vout1,HIGH);
-    delay(1);
-    readS1=digitalRead(sensor1);
+    //delay(1);
+    int readS1=digitalRead(sensor1);
     if(readS1==HIGH){//if the sensor says there is fluid in the hose
       mL_poured++;
     }

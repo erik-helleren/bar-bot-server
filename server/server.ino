@@ -124,7 +124,7 @@ void loop(){
 
 //timed interrupt for drink dispensing
 void timedInterupt(){
-  if(drinkQueueSize>0){
+  if(drinkQueueSize>0){//TODO also add a check or delay of some sort
     updateFluidInPipes();
     int numOn=0;
     for(int i=0;i<NUMBER_PUMPS;i++){
@@ -233,11 +233,12 @@ byte readLevelSensor(int pump){
 }
 
 void updateFluidInPipes(){
-  digitalWrite(D_PIN_PIPE,HIGH);
-  //maybeDelay
+  digitalWrite(D_PIN_PIPE,HIGH);//TODO check any other sensor lines that might be on,
+  //save then, and then restore them at the end
   for(int i=0;i<NUMBER_PUMPS;i++){
     fluidInPipes[i]=digitalRead(FluidMeters[i]);
   }
+  digitalWrite(D_PIN_PIPE,LOW);
 }
 
 
