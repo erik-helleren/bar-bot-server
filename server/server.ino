@@ -6,59 +6,50 @@
 #include <TimerThree.h>
 
 
-#define NUMBER_PUMPS 12
+#define NUMBER_PUMPS 8
 #define CLOCK_SPEED 16000000
 #define FLOW_METER_TIMEOUT_MS 1000
 #define ML_PER_SEC 33
 //number of ML to try to pump, then give up
 #define ML_TIMEOUT 30
+#define PORT 1234
 
 
 //Pin defines
 #define D_PIN_PIPE 22
 #define D_PIN_LEVEL_CRITICAL 23
 #define D_PIN_LEVEL_LOW 24
+#define D_PIN_LEVEL_MID 25
 
-#define D_PIN_PUMP_1  53
-#define D_PIN_PUMP_2  51
-#define D_PIN_PUMP_3  49
-#define D_PIN_PUMP_4  47
-#define D_PIN_PUMP_5  45
-#define D_PIN_PUMP_6  43
-#define D_PIN_PUMP_7  41
-#define D_PIN_PUMP_8  39
-#define D_PIN_PUMP_9  37
-#define D_PIN_PUMP_10 35
-#define D_PIN_PUMP_11 33
-#define D_PIN_PUMP_12 31
+#define D_PIN_PUMP_1  49
+#define D_PIN_PUMP_2  47
+#define D_PIN_PUMP_3  45
+#define D_PIN_PUMP_4  43
+#define D_PIN_PUMP_5  41
+#define D_PIN_PUMP_6  39
+#define D_PIN_PUMP_7  37
+#define D_PIN_PUMP_8  35
 
-#define A_PIN_PUMP_LEVEL_1 52
-#define A_PIN_PUMP_LEVEL_2 50
-#define A_PIN_PUMP_LEVEL_3 48
-#define A_PIN_PUMP_LEVEL_4 46
-#define A_PIN_PUMP_LEVEL_5 44
-#define A_PIN_PUMP_LEVEL_6 42
-#define A_PIN_PUMP_LEVEL_7 40
-#define A_PIN_PUMP_LEVEL_8 38
-#define A_PIN_PUMP_LEVEL_9 36
-#define A_PIN_PUMP_LEVEL_10 34
-#define A_PIN_PUMP_LEVEL_11 32
-#define A_PIN_PUMP_LEVEL_12 30
+#define A_PIN_PUMP_LEVEL_1 48
+#define A_PIN_PUMP_LEVEL_2 46
+#define A_PIN_PUMP_LEVEL_3 44
+#define A_PIN_PUMP_LEVEL_4 42
+#define A_PIN_PUMP_LEVEL_5 40
+#define A_PIN_PUMP_LEVEL_6 38
+#define A_PIN_PUMP_LEVEL_7 36
+#define A_PIN_PUMP_LEVEL_8 34
 
 #define MAX_DRINKS 10
 //Arrays for convenience
 const int Pumps[NUMBER_PUMPS]={D_PIN_PUMP_1,D_PIN_PUMP_2,D_PIN_PUMP_3,D_PIN_PUMP_4,
-    D_PIN_PUMP_5,D_PIN_PUMP_6,D_PIN_PUMP_7,D_PIN_PUMP_8,D_PIN_PUMP_9,
-    D_PIN_PUMP_10,D_PIN_PUMP_11,D_PIN_PUMP_12};
-const int FluidMeters[NUMBER_PUMPS]={A_PIN_PUMP_LEVEL_1,A_PIN_PUMP_LEVEL_2,A_PIN_PUMP_LEVEL_3,A_PIN_PUMP_LEVEL_4,
-    A_PIN_PUMP_LEVEL_5,A_PIN_PUMP_LEVEL_6,A_PIN_PUMP_LEVEL_7,A_PIN_PUMP_LEVEL_8,A_PIN_PUMP_LEVEL_9,
-    A_PIN_PUMP_LEVEL_10,A_PIN_PUMP_LEVEL_11,A_PIN_PUMP_LEVEL_12};
+    D_PIN_PUMP_5,D_PIN_PUMP_6,D_PIN_PUMP_7,D_PIN_PUMP_8};
+const int PumpSensor[NUMBER_PUMPS]={A_PIN_PUMP_LEVEL_1,A_PIN_PUMP_LEVEL_2,
+    A_PIN_PUMP_LEVEL_3,A_PIN_PUMP_LEVEL_4,A_PIN_PUMP_LEVEL_5,
+    A_PIN_PUMP_LEVEL_6,A_PIN_PUMP_LEVEL_7,A_PIN_PUMP_LEVEL_8};
     
 //Ethernet globals
-byte mac[] = { 
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress ip(192,168,2, 20); // IP address, may need to change depending on network
-EthernetServer server(1234);  // create a server at port 80
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+EthernetServer server(PORT);  
 
 //typedef's
 typedef struct Drink{//12*2=28 bytes
@@ -67,21 +58,19 @@ typedef struct Drink{//12*2=28 bytes
 
 //globals
 Drink drinkList[ MAX_DRINKS ];
-byte volumeIndex=0;//Used in interupt to check what its currently pouring
 volatile byte drinkQueueSize=0;//volitile becase the interupt might change the value as you are making a new drink.
 //Also a single byte because the compiler makes byte operations atomic,
 //required to prevent races with the interupts.
-int flowMeterCount=0;
-unsigned long lastFlowMeterTime;//last time the flow metter was accessed.
 byte fluidLevels[NUMBER_PUMPS];//the last know fluid levels
 byte fluidInPipes[NUMBER_PUMPS];//last Checked fluids at pump output
 short fluidTimeouts[NUMBER_PUMPS];
+unsigned long lastFluidCheck=0;
 
 void setup(){
   //Pin setups:
   for(int i=0;i<NUMBER_PUMPS;i++){
     pinMode(Pumps[i],OUTPUT);
-    pinMode(FluidMeters[i],INPUT);
+    pinMode(PumpSensor[i],INPUT);
     fluidTimeouts[i]=0;
   }
   pinMode(D_PIN_PIPE,OUTPUT);
@@ -114,7 +103,6 @@ void loop(){
     if(requestType==0){ //return status of the device
       getStatus(client);
     }else if(requestType==1||requestType==2){//Queue a drink
-      Serial.println("Make drink");
       makeDrink(client);
     }else if(requestType==3){//check status of drink
       
@@ -198,10 +186,13 @@ void makeDrink(EthernetClient client){
 }
 
 void getStatus(EthernetClient client){
+  if(millis()<lastFluidCheck||lastFluidCheck==0){
+    updateFluidLevels();
+    lastFluidCheck=millis();
+  }
   client.write((byte)0);
   client.write((byte)NUMBER_PUMPS);
-  for(int i=0;i<NUMBER_PUMPS;i++)
-    client.write(2);
+  client.write(fluidLevels,NUMBER_PUMPS);
   delay(1);
   client.stop();
 }
@@ -219,24 +210,42 @@ int waitForAvaliableBytes(EthernetClient client, int bytesToWaitFor, int timeout
   }
   return 1;
 }
-//Will take a minimum of 4ms to execute.
+
+
 void updateFluidLevels(){
-    //probably turn on a digital pin to prevent the wire from being on for a long time
+    digitalWrite(D_PIN_LEVEL_CRITICAL,HIGH);
     for(int i=0;i<NUMBER_PUMPS;i++){
-        fluidLevels[i]=readLevelSensor(i);
+      if(digitalRead(PumpSensor[i])){
+        fluidLevels[i]=1;
+      }else{
+        fluidLevels[i]=0;
+      }
     }
-    //turn off the digital pin
-}
-byte readLevelSensor(int pump){
-    int val=analogRead(FluidMeters[pump]);
-    return (byte)(val*255/1024);//scale val to a byte and return it
+    digitalWrite(D_PIN_LEVEL_CRITICAL,LOW);
+    
+    digitalWrite(D_PIN_LEVEL_LOW,HIGH);
+    for(int i=0;i<NUMBER_PUMPS;i++){
+      if(digitalRead(PumpSensor[i])){
+        fluidLevels[i]=2;
+      }
+    }
+    digitalWrite(D_PIN_LEVEL_LOW,LOW);
+    
+    digitalWrite(D_PIN_LEVEL_MID,HIGH);
+    for(int i=0;i<NUMBER_PUMPS;i++){
+      if(digitalRead(PumpSensor[i])){
+        fluidLevels[i]=3;
+      }
+    }
+    digitalWrite(D_PIN_LEVEL_MID,LOW);
 }
 
 void updateFluidInPipes(){
-  digitalWrite(D_PIN_PIPE,HIGH);//TODO check any other sensor lines that might be on,
+  //TODO check any other sensor lines that might be on,
   //save then, and then restore them at the end
+  digitalWrite(D_PIN_PIPE,HIGH);
   for(int i=0;i<NUMBER_PUMPS;i++){
-    fluidInPipes[i]=digitalRead(FluidMeters[i]);
+    fluidInPipes[i]=digitalRead(PumpSensor[i]);
   }
   digitalWrite(D_PIN_PIPE,LOW);
 }
