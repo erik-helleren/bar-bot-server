@@ -108,6 +108,10 @@ void loop(){
       
     } 
   }
+  if(millis()-lastFluidCheck>10000){//update the fluid levels ever 10 seconds
+    updateFluidLevels();
+    lastFluidCheck=millis();
+  }
 }
 
 //timed interrupt for drink dispensing
@@ -118,7 +122,7 @@ void timedInterupt(){
     for(int i=0;i<NUMBER_PUMPS;i++){
       if(drinkList[0].volumes[i]>0){
         if(fluidInPipes[i]==HIGH){//if the sensor says there is fluid in the hose
-          drinkList[0].volumes[i]--;
+          drinkList[0].volumes[i]--;//decrement the volume
         }//if this evaluates as false, fluid is not exiting the hose, not getting to the drink
         else{
           fluidTimeouts[i]++;//increment the timeout so you know 
@@ -152,8 +156,8 @@ void popDrinkQueue(){
     drinkList[MAX_DRINKS-1].volumes[i]=0;
     fluidTimeouts[i]=0;
   }
-  
 }
+
 void makeDrink(EthernetClient client){
   if(drinkQueueSize>=MAX_DRINKS){//currently has the max number of drinks queued
     client.flush();
@@ -243,11 +247,34 @@ void updateFluidLevels(){
 void updateFluidInPipes(){
   //TODO check any other sensor lines that might be on,
   //save then, and then restore them at the end
+  int on=0;
+  if(digitalRead(D_PIN_LEVEL_CRITICAL)==HIGH){
+    on=1;
+    digitalWrite(D_PIN_LEVEL_CRITICAL,LOW);
+  }
+  if(digitalRead(D_PIN_LEVEL_LOW)==HIGH){
+    on=2;
+    digitalWrite(D_PIN_LEVEL_LOWL,LOW);
+  }
+  if(digitalRead(D_PIN_LEVEL_MID)==HIGH){
+    on=3;
+    digitalWrite(D_PIN_LEVEL_MID,LOW);
+  }
+  
   digitalWrite(D_PIN_PIPE,HIGH);
   for(int i=0;i<NUMBER_PUMPS;i++){
     fluidInPipes[i]=digitalRead(PumpSensor[i]);
   }
   digitalWrite(D_PIN_PIPE,LOW);
+  
+  //restore the previously on sensor pin.  would be easier 
+  //just to do this in the main loop every 30 ms or so.
+  if(on==1)
+    digitalWrite(D_PIN_LEVEL_CRITICAL,HIGH);
+  if(on==2)
+    digitalWrite(D_PIN_LEVEL_LOW,HIGH);
+  if(on==3)
+    digitalWrite(D_PIN_LEVEL_MID,HIGH);
 }
 
 
