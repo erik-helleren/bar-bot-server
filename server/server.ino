@@ -54,10 +54,16 @@ EthernetServer server(PORT);
 //typedef's
 typedef struct Drink{//12*2=28 bytes
   short volumes[NUMBER_PUMPS];
+  int id;
 };
-
+typedef struct FinishedDrink{
+  int id;
+  byte code;//0 not completed, 1 completed, 2 error.
+}
 //globals
 Drink drinkList[ MAX_DRINKS ];
+FinishedDrink finishedList[MAX_DRINKS];
+byte finishedQueueSize=0;
 volatile byte drinkQueueSize=0;//volitile becase the interupt might change the value as you are making a new drink.
 //Also a single byte because the compiler makes byte operations atomic,
 //required to prevent races with the interupts.
@@ -65,6 +71,8 @@ byte fluidLevels[NUMBER_PUMPS];//the last know fluid levels
 byte fluidInPipes[NUMBER_PUMPS];//last Checked fluids at pump output
 short fluidTimeouts[NUMBER_PUMPS];
 unsigned long lastFluidCheck=0;
+int nextID=0;
+
 
 void setup(){
   //Pin setups:
@@ -74,7 +82,6 @@ void setup(){
     fluidTimeouts[i]=0;
   }
   pinMode(D_PIN_PIPE,OUTPUT);
-  
   
   Serial.begin(9600);
   //Setup timer interrupt
@@ -95,7 +102,6 @@ void loop(){
   //Serial.println("Entering loop");
   EthernetClient client = server.available();  // try to get client
   if(client){
-    Serial.println("client gotten");
     if(waitForAvaliableBytes(client,1,500)==-1){
       client.stop();return;
     }
@@ -105,7 +111,7 @@ void loop(){
     }else if(requestType==1||requestType==2){//Queue a drink
       makeDrink(client);
     }else if(requestType==3){//check status of drink
-      
+      checkDrink(client);
     } 
   }
   if(millis()-lastFluidCheck>10000){//update the fluid levels ever 10 seconds
@@ -149,13 +155,18 @@ void timedInterupt(){
 
 void popDrinkQueue(){
   drinkQueueSize--;
+  int prevID=drinkList[0].id;
   for(int i=0;i<MAX_DRINKS-1;i++){
-    drinkList[i]=drinkList[i++]; 
+    drinkList[i]=drinkList[i+1]; 
+    finishedList[i+1]=finishedList[i];
   }
   for(int i=0;i<NUMBER_PUMPS;i++){
     drinkList[MAX_DRINKS-1].volumes[i]=0;
     fluidTimeouts[i]=0;
   }
+  finishedList[0].id=prevID;
+  finishedList[0].code=1;
+  if(finishedQueueSize<MAX_DRINKS) finishedQueueSize++;
 }
 
 void makeDrink(EthernetClient client){
@@ -185,6 +196,7 @@ void makeDrink(EthernetClient client){
   if(client.read()>=0){//client should have ended output, return error
     client.write((byte)2);delay(1);client.stop();return;
   }
+  drinkList[drinkQueueSize].id=nextID++;
   drinkQueueSize++;
   client.write((byte)0);delay(1);client.stop();return;
 }
@@ -275,6 +287,27 @@ void updateFluidInPipes(){
     digitalWrite(D_PIN_LEVEL_LOW,HIGH);
   if(on==3)
     digitalWrite(D_PIN_LEVEL_MID,HIGH);
+}
+
+void checkDrink(EthernetClient client){
+  int id=0;
+  if(waitForAvaliableBytes(client,4,500)==-1){
+    client.stop();return;
+  }//assume most significant byte first
+  id+=client.read()*256*265*256;
+  id+=client.read()*256*265;
+  id+=client.read()*256;
+  id+=client.read();
+
+  for(int i=0;i<MAX_DRINKS;i++){
+    if(finishedList[i].id==id){
+      client.write(finishedList[i].code);
+      client.stop();
+      return;
+    }
+  }
+  client.write(0);
+  client.stop();
 }
 
 
