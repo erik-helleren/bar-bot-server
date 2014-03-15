@@ -59,7 +59,7 @@ typedef struct Drink{//12*2=28 bytes
 typedef struct FinishedDrink{
   int id;
   byte code;//0 not completed, 1 completed, 2 error.
-}
+};
 //globals
 Drink drinkList[ MAX_DRINKS ];
 FinishedDrink finishedList[MAX_DRINKS];
@@ -266,7 +266,7 @@ void updateFluidInPipes(){
   }
   if(digitalRead(D_PIN_LEVEL_LOW)==HIGH){
     on=2;
-    digitalWrite(D_PIN_LEVEL_LOWL,LOW);
+    digitalWrite(D_PIN_LEVEL_LOW,LOW);
   }
   if(digitalRead(D_PIN_LEVEL_MID)==HIGH){
     on=3;
@@ -301,12 +301,12 @@ void checkDrink(EthernetClient client){
 
   for(int i=0;i<MAX_DRINKS;i++){
     if(finishedList[i].id==id){
-      client.write(finishedList[i].code);
+      client.write(((byte)finishedList[i].code));
       client.stop();
       return;
     }
   }
-  client.write(0);
+  client.write((byte)0);
   client.stop();
 }
 
