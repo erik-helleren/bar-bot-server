@@ -11,8 +11,9 @@
 #define FLOW_METER_TIMEOUT_MS 1000
 #define ML_PER_SEC 33
 //number of ML to try to pump, then give up
-#define ML_TIMEOUT 30
+#define ML_TIMEOUT 120
 #define PORT 1234
+#define SP(x) Serial.print(x);
 
 
 //Pin defines
@@ -75,15 +76,19 @@ int nextID=0;
 
 
 void setup(){
+
+  Serial.begin(115200);
   //Pin setups:
   for(int i=0;i<NUMBER_PUMPS;i++){
     pinMode(Pumps[i],OUTPUT);
     pinMode(PumpSensor[i],INPUT);
     fluidTimeouts[i]=0;
+    digitalWrite(Pumps[i],LOW);
   }
   pinMode(D_PIN_PIPE,OUTPUT);
   
-  Serial.begin(9600);
+  for(int i=0;i<MAX_DRINKS;i++)
+    memset(drinkList[i].volumes,0,NUMBER_PUMPS);
   //Setup timer interrupt
   long desiredFrequency=ML_PER_SEC;//Set frequency to be ml/sec so
     //the interrupt calls has a 1:1 ratio of calls to ml dispensed
@@ -96,6 +101,7 @@ void setup(){
   Ethernet.begin(mac);  // initialize Ethernet device
   server.begin();           // start to listen for clients
   //End Ethernet Setup
+  SP("finished setup\n");
 }
 
 void loop(){
@@ -103,19 +109,27 @@ void loop(){
   EthernetClient client = server.available();  // try to get client
   if(client){
     if(waitForAvaliableBytes(client,1,500)==-1){
+      SP("No first Byte\n");
       client.stop();return;
     }
     byte requestType=client.read();
     if(requestType==0){ //return status of the device
-      getStatus(client);
+      SP("Status request\n");
+      //getStatus(client);
     }else if(requestType==1||requestType==2){//Queue a drink
+      SP("make drink request\n");
       makeDrink(client);
     }else if(requestType==3){//check status of drink
-      checkDrink(client);
+      SP("Drink check\n");
+      //checkDrink(client);
     } 
   }
-  if(millis()-lastFluidCheck>10000){//update the fluid levels ever 10 seconds
-    updateFluidLevels();
+  if(millis()-lastFluidCheck>100000){//update the fluid levels ever 10 seconds
+    SP("update fluid levels LOOP\n");
+    for(int i=0;i<NUMBER_PUMPS;i++){
+      
+    }
+    //updateFluidLevels();
     lastFluidCheck=millis();
   }
 }
@@ -171,13 +185,12 @@ void popDrinkQueue(){
 
 void makeDrink(EthernetClient client){
   if(drinkQueueSize>=MAX_DRINKS){//currently has the max number of drinks queued
-    client.flush();
+    SP("Queue full");
+    //client.flush();
     client.write((byte)1); delay(1); client.stop(); return;
   }
   //make sure the drink you are about to edit is empty:
-  for(int i=0;i<NUMBER_PUMPS;i++){
-    drinkList[drinkQueueSize].volumes[i]=0;
-  }
+  memset(drinkList[drinkQueueSize].volumes,0,NUMBER_PUMPS);
   if(waitForAvaliableBytes(client,1,500)==-1){
     client.write((byte)2);delay(1);client.stop();return;
   }
@@ -197,13 +210,15 @@ void makeDrink(EthernetClient client){
     client.write((byte)2);delay(1);client.stop();return;
   }
   drinkList[drinkQueueSize].id=nextID++;
+  SP("made drink\n");
+  serialDrink(drinkQueueSize);
   drinkQueueSize++;
   client.write((byte)0);delay(1);client.stop();return;
 }
 
 void getStatus(EthernetClient client){
   if(millis()<lastFluidCheck||lastFluidCheck==0){
-    updateFluidLevels();
+    //updateFluidLevels();
     lastFluidCheck=millis();
   }
   client.write((byte)0);
@@ -259,6 +274,7 @@ void updateFluidLevels(){
 void updateFluidInPipes(){
   //TODO check any other sensor lines that might be on,
   //save then, and then restore them at the end
+  /*
   int on=0;
   if(digitalRead(D_PIN_LEVEL_CRITICAL)==HIGH){
     on=1;
@@ -272,7 +288,7 @@ void updateFluidInPipes(){
     on=3;
     digitalWrite(D_PIN_LEVEL_MID,LOW);
   }
-  
+  */
   digitalWrite(D_PIN_PIPE,HIGH);
   for(int i=0;i<NUMBER_PUMPS;i++){
     fluidInPipes[i]=digitalRead(PumpSensor[i]);
@@ -281,12 +297,14 @@ void updateFluidInPipes(){
   
   //restore the previously on sensor pin.  would be easier 
   //just to do this in the main loop every 30 ms or so.
+  /*
   if(on==1)
     digitalWrite(D_PIN_LEVEL_CRITICAL,HIGH);
   if(on==2)
     digitalWrite(D_PIN_LEVEL_LOW,HIGH);
   if(on==3)
     digitalWrite(D_PIN_LEVEL_MID,HIGH);
+    */
 }
 
 void checkDrink(EthernetClient client){
@@ -310,4 +328,10 @@ void checkDrink(EthernetClient client){
   client.stop();
 }
 
-
+void serialDrink(int drinkID){
+  SP(drinkID)  SP(" id=") SP(drinkList[drinkID].id) SP(" {")
+  for(int i=0;i<NUMBER_PUMPS;i++){
+    SP(i) SP("=") SP((int)drinkList[drinkID].volumes[i]) SP(", ");
+  }
+  SP('\n');
+}
