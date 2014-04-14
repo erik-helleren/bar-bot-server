@@ -184,7 +184,7 @@ void timedInterupt(){
 		}
 	}//end if there are drinks
 	else{//there are no drinks, all pumps off
-		for(i=0;i<NUMBER_PUMPS;i++){
+		for(int i=0;i<NUMBER_PUMPS;i++){
 			digitalWrite(Pumps[i],LOW);
 		}
 	}
