@@ -43,14 +43,18 @@
 #define MAX_DRINKS 10
 
 //Drink status defines
-#define SUCESS 1
-#define FAILURE 2
+#define QUEUED 0
+#define MAKING 1
+#define SUCESS 2
+#define FAILURE 3
+#define NO_RECORD 4
 //fluid level values and pump failure for check status
 #define LEVEL_CRIT 1
 #define LEVEL_LOW 2
 #define LEVEL_MID 3
 #define LEVEL_HIGH 4
 #define PUMP_FAILED 5
+#define AUTH_KEY 12345
 //Arrays for convenience
 const int Pumps[NUMBER_PUMPS]={ D_PIN_PUMP_1,D_PIN_PUMP_2,D_PIN_PUMP_3,D_PIN_PUMP_4,
 D_PIN_PUMP_5,D_PIN_PUMP_6,D_PIN_PUMP_7,D_PIN_PUMP_8 };
@@ -338,19 +342,29 @@ void updateFluidInPipes(){
 
 void checkDrink(EthernetClient client){
 	int id=0;
-	if(waitForAvaliableBytes(client,4,500)==-1){
+	if(waitForAvaliableBytes(client,2,500)==-1){
 		client.stop();return;
 	}//assume most significant byte first
 	id+=client.read()*256;
 	id+=client.read();
 	
-	for(int i=0;i<MAX_DRINKS;i++){
+  for(int i=0;i<MAX_DRINKS && i<finishedQueueSize;i++){
 		if(finishedList[i].id==id){
 			client.write(((byte)finishedList[i].code));
 			client.stop(); 
 			return;
 		}
 	}
+	for(int i=0;i<MAX_DRINKS && i<drinkQueueSize;i++){
+    if(drinkList[i].id==id){
+      if(i==0)
+        client.write((byte)MAKING);
+      else
+        client.write((byte)QUEUED);
+      client.stop();
+      return;
+    }
+  }
 	client.write((byte)0);
 	client.stop();
 }
@@ -362,4 +376,22 @@ void serialDrink(int drinkID){
 		}
 		SP('\n');
 }
-	
+
+//returns 1 if sucess, 0 if failure
+int authenticate(EthernetClient client){
+  int input=0;
+  if(waitForAvaliableBytes(client,4,500)==-1){
+    client.stop();return -1;
+  }
+  input+=client.read()*256*256*256;
+  input+=client.read()*256*256;
+  input+=client.read()*256;
+  input+=client.read();
+  if(input==AUTH_KEY){
+    client.write((byte)255);
+    return 1;
+  }else{
+    client.write((byte)254);
+    return 0;
+  }
+}
