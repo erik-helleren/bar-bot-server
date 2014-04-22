@@ -246,7 +246,10 @@ void makeDrink(EthernetClient client){//TODO send drink ID to client
 	SP("made drink\n");
 	serialDrink(drinkQueueSize);
 	drinkQueueSize++;
-	client.write((byte)1);delay(1);client.stop();return;
+	client.write((byte)0);
+  client.write((byte)drinkList[drinkQueueSize].id/265);
+  client.write((byte)drinkList[drinkQueueSize].id%256);
+  delay(1);client.stop();return;
 }
 
 void getStatus(EthernetClient client){
