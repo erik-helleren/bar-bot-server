@@ -130,6 +130,9 @@ void loop(){
 			SP("No first Byte\n");
 			client.stop();return;
 		}
+		if(authenticate(client)==0){//if authentication failed
+      return;//do not proced in the loop
+    }
 		byte requestType=client.read();
 		if(requestType==0){ //return status of the device
 			SP("Status request\n");
